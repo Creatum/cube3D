@@ -5,6 +5,7 @@ Launched by Pinokio from the cloned repo folder:  python ../app.py  (cwd = app/)
 
 import argparse
 import datetime
+import inspect
 import os
 import sys
 import traceback
@@ -39,6 +40,23 @@ SHAPE_CKPT = os.path.join("model_weights", "shape_tokenizer.safetensors")
 OUTPUT_DIR = os.path.join(APP_DIR, "outputs")
 
 STATE = {"engine": None, "fast": None}
+
+
+def supported_kwargs(func, **kwargs):
+    """Keep only the kwargs this Gradio version actually accepts.
+
+    Gradio 6 moved `theme` from Blocks() to launch() and dropped `show_api`.
+    """
+    try:
+        params = inspect.signature(func).parameters
+    except (TypeError, ValueError):
+        return kwargs
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return kwargs
+    return {k: v for k, v in kwargs.items() if k in params}
+
+
+LAUNCH_TAKES_THEME = "theme" in supported_kwargs(gr.Blocks.launch, theme=None)
 
 
 def config_path():
@@ -151,7 +169,10 @@ def generate(prompt, fast, resolution_base, top_p, use_top_p, use_bbox, bx, by, 
 
 def build_ui():
     device = select_device()
-    with gr.Blocks(title="Cube 3D - Roblox", theme=gr.themes.Soft()) as demo:
+    blocks_kwargs = {"title": "Cube 3D - Roblox"}
+    if not LAUNCH_TAKES_THEME:
+        blocks_kwargs["theme"] = gr.themes.Soft()
+    with gr.Blocks(**blocks_kwargs) as demo:
         gr.Markdown(
             "# Cube 3D - Roblox\n"
             "Text-to-shape generation with [Roblox/cube](https://github.com/Roblox/cube). "
@@ -196,7 +217,12 @@ def build_ui():
                 )
             with gr.Column(scale=1):
                 model_out = gr.Model3D(
-                    label="Result", height=460, clear_color=[0.07, 0.07, 0.1, 1.0]
+                    **supported_kwargs(
+                        gr.Model3D.__init__,
+                        label="Result",
+                        height=460,
+                        clear_color=[0.07, 0.07, 0.1, 1.0],
+                    )
                 )
                 files_out = gr.Files(label="Download (.obj / .glb)")
                 info_out = gr.Markdown()
@@ -216,7 +242,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    build_ui().queue().launch(
+    demo = build_ui().queue()
+    launch_kwargs = supported_kwargs(
+        demo.launch,
         server_name=args.host,
         server_port=args.port,
         share=args.share,
@@ -224,3 +252,6 @@ if __name__ == "__main__":
         inbrowser=False,
         show_api=False,
     )
+    if LAUNCH_TAKES_THEME:
+        launch_kwargs["theme"] = gr.themes.Soft()
+    demo.launch(**launch_kwargs)
