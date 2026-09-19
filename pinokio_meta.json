@@ -1,0 +1,14 @@
+{
+  "title": "Cube 3D (Roblox)",
+  "description": "One-click installer for Roblox Cube 3D: text-to-shape 3D generation with a Gradio web UI.",
+  "links": [{
+    "title": "Roblox Cube",
+    "links": [{
+      "title": "GitHub",
+      "value": "https://github.com/Roblox/cube"
+    }, {
+      "title": "Model weights",
+      "value": "https://huggingface.co/Roblox/cube3d-v0.5"
+    }]
+  }]
+}
